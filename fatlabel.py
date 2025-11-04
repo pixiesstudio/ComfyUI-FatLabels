@@ -180,6 +180,21 @@ class BasicFatLabel:
             image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
             return image_tensor_out,
 
+# Ensure stable node IDs across versions and keep old graphs working
+try:
+    NODE_CLASS_MAPPINGS
+except NameError:
+    NODE_CLASS_MAPPINGS = {}
+try:
+    NODE_DISPLAY_NAME_MAPPINGS
+except NameError:
+    NODE_DISPLAY_NAME_MAPPINGS = {}
+
+NODE_CLASS_MAPPINGS["FATLABEL (Basic)"] = BasicFatLabel
+NODE_CLASS_MAPPINGS["??? FATLABEL (Basic)"] = BasicFatLabel
+NODE_CLASS_MAPPINGS["🏷️ FATLABEL (Basic)"] = BasicFatLabel
+NODE_DISPLAY_NAME_MAPPINGS["BasicFatLabel"] = "FATLABEL (Basic)"
+
         font_color_rgba = ImageColor.getcolor(font_color_hex, "RGBA")
         fill_color = font_color_rgba if transparent_background else font_color_rgba[:3]
 
@@ -238,3 +253,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BasicFatLabel": "­ƒÅÀ´©Å FATLABEL (Basic)",
 
 }
+NODE_CLASS_MAPPINGS["FATLABEL (Basic)"] = BasicFatLabel
+NODE_CLASS_MAPPINGS["??? FATLABEL (Basic)"] = BasicFatLabel
+NODE_DISPLAY_NAME_MAPPINGS["BasicFatLabel"] = "FATLABEL (Basic)"

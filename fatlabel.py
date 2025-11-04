@@ -19,6 +19,22 @@ import re
 comfy__path = os.path.dirname(folder_paths.__file__)
 fatlabel__path = os.path.join(os.path.dirname(__file__))
 
+
+def _list_node_fonts():
+    fonts_dir = os.path.join(fatlabel__path, "fonts")
+    try:
+        files = [
+            f for f in os.listdir(fonts_dir)
+            if f.lower().endswith((".ttf", ".otf", ".ttc", ".otc"))
+        ]
+    except Exception:
+        files = []
+
+    if not files:
+        # Provide a sane default, even if missing on disk
+        files = ["Bevan-Regular.ttf"]
+    return sorted(files)
+
 def handle_stream(stream, is_stdout):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')
 
@@ -118,12 +134,17 @@ class BasicFatLabel:
         return {
             "required": {
                 "text": ("STRING", {"default": ""}),
-                "font_path": ("STRING", {"default": f"{fatlabel__path}/fonts/Bevan-Regular.ttf", "multiline": False}),
+                # Dropdown of fonts shipped with this node (from ./fonts)
+                "font_name": (_list_node_fonts(),),
                 "font_color_hex": ("STRING", {"default": "#888888", "multiline": False}),
                 "background_color_hex": ("STRING", {"default": "#000000", "multiline": False}),
                 "font_size": ("INT", {"default": 72, "min": 1}),  # Font size in pixels
                 "kerning_value": ("FLOAT", {"default": 0.0}),  # New input for kerning
                 "transparent_background": ("BOOLEAN", {"default": False}),
+            },
+            # Optional: allow manual override with a custom absolute path
+            "optional": {
+                "font_path": ("STRING", {"default": f"{fatlabel__path}/fonts/Bevan-Regular.ttf", "multiline": False}),
             }
         }
 
@@ -136,11 +157,18 @@ class BasicFatLabel:
         text="",
         background_color_hex="#000000",
         font_color_hex="#888888",
+        font_name=_list_node_fonts()[0],
         font_path=f"{fatlabel__path}/fonts/Bevan-Regular.ttf",
         font_size=72,
         kerning_value=0.0,
         transparent_background=False,
     ):
+        # Resolve selected font: prefer custom path if it points to a file, otherwise use dropdown choice
+        if font_path and os.path.isfile(font_path):
+            selected_font_path = font_path
+        else:
+            selected_font_path = os.path.join(fatlabel__path, "fonts", font_name)
+
         if not text:
             # If text is empty, return a placeholder canvas directly
             canvas_width, canvas_height = 40, 40  # Set desired dimensions for an empty canvas
@@ -160,7 +188,7 @@ class BasicFatLabel:
         max_attempts = 10
 
         for _ in range(max_attempts):
-            font = ImageFont.truetype(font_path, current_font_size)
+            font = ImageFont.truetype(selected_font_path, current_font_size)
 
             # Calculate glyph widths and apply kerning between characters (Pillow 10+)
             # getsize was removed; use getlength for width per character

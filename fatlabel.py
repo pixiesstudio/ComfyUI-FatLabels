@@ -142,8 +142,8 @@ class BasicFatLabel:
         return {
             "required": {
                 "text": ("STRING", {"default": ""}),
-                # Dropdown of fonts shipped with this node (from ./fonts)
-                "font_name": (_list_node_fonts(),),
+                # Dropdown of fonts shipped with this node (from ./fonts) — allow wiring
+                "font_name": (_list_node_fonts(), {"forceInput": True}),
                 "font_color_hex": ("STRING", {"default": "#888888", "multiline": False}),
                 "background_color_hex": ("STRING", {"default": "#000000", "multiline": False}),
                 "font_size": ("INT", {"default": 72, "min": 1}),  # Font size in pixels

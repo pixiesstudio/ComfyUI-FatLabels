@@ -1,4 +1,4 @@
-"""
+﻿"""
 @forker: LaminarRainbow 
 @title: FATLABEL
 @nickname: FATLABEL
@@ -15,12 +15,6 @@ import locale
 import pandas as pd
 import os
 import re
-import io
-import shutil
-import tempfile
-import zipfile
-import urllib.parse
-import urllib.request
 
 comfy__path = os.path.dirname(folder_paths.__file__)
 fatlabel__path = os.path.join(os.path.dirname(__file__))
@@ -28,20 +22,18 @@ fatlabel__path = os.path.join(os.path.dirname(__file__))
 
 def _list_node_fonts():
     fonts_dir = os.path.join(fatlabel__path, "fonts")
-    results = []
     try:
-        for root, _, files in os.walk(fonts_dir):
-            for f in files:
-                if f.lower().endswith((".ttf", ".otf", ".ttc", ".otc")):
-                    rel = os.path.relpath(os.path.join(root, f), fonts_dir)
-                    results.append(rel.replace(os.sep, "/"))
+        files = [
+            f for f in os.listdir(fonts_dir)
+            if f.lower().endswith((".ttf", ".otf", ".ttc", ".otc"))
+        ]
     except Exception:
-        pass
+        files = []
 
-    if not results:
+    if not files:
         # Provide a sane default, even if missing on disk
-        results = ["Bevan-Regular.ttf"]
-    return sorted(results)
+        files = ["Bevan-Regular.ttf"]
+    return sorted(files)
 
 def handle_stream(stream, is_stdout):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')
@@ -54,7 +46,7 @@ def handle_stream(stream, is_stdout):
 
 
 def process_wrap(cmd_str, cwd=None, handler=None):
-    print(f"🏷️ FATLABEL (execute): {cmd_str} in '{cwd}'")
+    print(f"­ƒÅÀ´©Å FATLABEL (execute): {cmd_str} in '{cwd}'")
     process = subprocess.Popen(cmd_str, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
 
     if handler is None:
@@ -83,7 +75,7 @@ def get_installed_packages():
             result = subprocess.check_output([sys.executable, '-m', 'pip', 'list'], universal_newlines=True)
             pip_list = set([line.split()[0].lower() for line in result.split('\n') if line.strip()])
         except subprocess.CalledProcessError as e:
-            print(f"🏷️ FATLABEL (ComfyUI-Manager): Failed to retrieve the information of installed pip packages.")
+            print(f"­ƒÅÀ´©Å FATLABEL (ComfyUI-Manager): Failed to retrieve the information of installed pip packages.")
             return set()
     
     return pip_list
@@ -112,7 +104,7 @@ def is_requirements_installed(file_path):
                     
     return True
 
-print(f"🏷️ FATLABEL (check dependencies)")
+print(f"­ƒÅÀ´©Å FATLABEL (check dependencies)")
 
 if "python_embeded" in sys.executable or "python_embedded" in sys.executable:
     pip_install = [sys.executable, '-s', '-m', 'pip', 'install']
@@ -131,7 +123,7 @@ try:
 except Exception:
     process_wrap(pip_install + ['freetype-py'])
 
-print(f"🏷️ FATLABEL (loading) : (v0.2.4)")
+print(f"­ƒÅÀ´©Å FATLABEL (loading) : (v0.2.4)")
 
 class BasicFatLabel:
     def __init__(self, device="cpu"):
@@ -142,8 +134,8 @@ class BasicFatLabel:
         return {
             "required": {
                 "text": ("STRING", {"default": ""}),
-                # Dropdown of fonts shipped with this node (from ./fonts) — allow wiring
-                "font_name": (_list_node_fonts(), {"forceInput": True}),
+                # Dropdown of fonts shipped with this node (from ./fonts)
+                "font_name": (_list_node_fonts(),),
                 "font_color_hex": ("STRING", {"default": "#888888", "multiline": False}),
                 "background_color_hex": ("STRING", {"default": "#000000", "multiline": False}),
                 "font_size": ("INT", {"default": 72, "min": 1}),  # Font size in pixels
@@ -151,15 +143,14 @@ class BasicFatLabel:
                 "transparent_background": ("BOOLEAN", {"default": False}),
             },
             # Optional: allow manual override with a custom absolute path
-            # Leave empty by default so dropdown is used unless explicitly overridden.
             "optional": {
-                "font_path": ("STRING", {"default": "", "multiline": False}),
+                "font_path": ("STRING", {"default": f"{fatlabel__path}/fonts/Bevan-Regular.ttf", "multiline": False}),
             }
         }
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "create_basic_fatlabel"
-    CATEGORY = "🏷️ FATLABEL (Basic)"
+    CATEGORY = "­ƒÅÀ´©Å FATLABEL (Basic)"
 
     def create_basic_fatlabel(
         self,
@@ -167,17 +158,16 @@ class BasicFatLabel:
         background_color_hex="#000000",
         font_color_hex="#888888",
         font_name=_list_node_fonts()[0],
-        font_path="",
+        font_path=f"{fatlabel__path}/fonts/Bevan-Regular.ttf",
         font_size=72,
         kerning_value=0.0,
         transparent_background=False,
     ):
         # Resolve selected font: prefer custom path if it points to a file, otherwise use dropdown choice
-        if font_path and isinstance(font_path, str) and os.path.isfile(font_path):
+        if font_path and os.path.isfile(font_path):
             selected_font_path = font_path
         else:
-            # Allow subfolders selected via dropdown (entries use forward slashes)
-            selected_font_path = os.path.join(fatlabel__path, "fonts", *font_name.split("/"))
+            selected_font_path = os.path.join(fatlabel__path, "fonts", font_name)
 
         if not text:
             # If text is empty, return a placeholder canvas directly
@@ -190,85 +180,61 @@ class BasicFatLabel:
             image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
             return image_tensor_out,
 
+        font_color_rgba = ImageColor.getcolor(font_color_hex, "RGBA")
+        fill_color = font_color_rgba if transparent_background else font_color_rgba[:3]
 
-def _slugify_family(name: str) -> str:
-    s = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-")
-    return s or "font"
+        # Initial font size and maximum attempts for fitting text
+        current_font_size = font_size
+        max_attempts = 10
 
+        for _ in range(max_attempts):
+            font = ImageFont.truetype(selected_font_path, current_font_size)
 
-class GoogleFontDownload:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "family": ("STRING", {"default": "Inter"}),
-                "variant_hint": ("STRING", {"default": "Regular"}),
-                "overwrite": ("BOOLEAN", {"default": False}),
-            }
-        }
+            # Calculate glyph widths and apply kerning between characters (Pillow 10+)
+            # getsize was removed; use getlength for width per character
+            glyph_widths = [font.getlength(ch) for ch in text]
+            kerning_total = max(0, len(text) - 1) * kerning_value
+            actual_text_width = sum(glyph_widths) + kerning_total
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("font_path", "font_name")
-    FUNCTION = "download"
-    CATEGORY = "??? FATLABEL (Fonts)"
+            # Calculate text height
+            # Use getbbox to compute height (top/bottom of bounding box)
+            bbox = font.getbbox(text)
+            text_height = (bbox[3] - bbox[1]) if bbox else current_font_size
 
-    def download(self, family: str, variant_hint: str = "Regular", overwrite: bool = False):
-        base_dir = os.path.join(fatlabel__path, "fonts")
-        fam_slug = _slugify_family(family)
-        dest_dir = os.path.join(base_dir, fam_slug)
-        os.makedirs(base_dir, exist_ok=True)
+            # Create canvas with appropriate width and height (using integers)
+            canvas_width = max(1, int(round(actual_text_width + 40)))
+            canvas_height = max(1, int(round(text_height + 40)))
+            if transparent_background:
+                canvas_mode = "RGBA"
+                canvas_color = (0, 0, 0, 0)
+            else:
+                canvas_mode = "RGB"
+                canvas_color = ImageColor.getcolor(background_color_hex, "RGBA")[:3]
 
-        if overwrite and os.path.isdir(dest_dir):
-            try:
-                shutil.rmtree(dest_dir)
-            except Exception as e:
-                print(f"??? FATLABEL (fonts): failed to clear existing dir: {e}")
+            canvas = Image.new(canvas_mode, (canvas_width, canvas_height), canvas_color)
 
-        os.makedirs(dest_dir, exist_ok=True)
+            # Draw text with adjusted font size and kerning (using integers for coordinates)
+            draw = ImageDraw.Draw(canvas)
+            # Use baseline-aware positioning to avoid clipping at the bottom.
+            # getbbox returns (left, top, right, bottom) relative to baseline.
+            # To center visually, offset by bbox top so that the baseline is positioned correctly.
+            x = (canvas_width - actual_text_width) / 2 - (bbox[0] if bbox else 0)
+            y = int(round((canvas_height - text_height) / 2 - (bbox[1] if bbox else 0)))
 
-        url = "https://fonts.google.com/download?family=" + urllib.parse.quote(family)
-        print(f"??? FATLABEL (download): {family} -> {url}")
+            for ch, ch_width in zip(text, glyph_widths):
+                draw.text((x, y), ch, fill=fill_color, font=font)
+                x += ch_width + kerning_value
 
-        extracted = []
-        try:
-            with tempfile.TemporaryDirectory() as td:
-                tmp_zip = os.path.join(td, "font.zip")
-                with urllib.request.urlopen(url) as resp, open(tmp_zip, "wb") as f:
-                    shutil.copyfileobj(resp, f)
+            # Convert to PyTorch tensor efficiently
+            image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
 
-                with zipfile.ZipFile(tmp_zip) as zf:
-                    for zi in zf.infolist():
-                        name = zi.filename
-                        if not name.lower().endswith((".ttf", ".otf")):
-                            continue
-                        out_path = os.path.join(dest_dir, os.path.basename(name))
-                        with zf.open(zi) as src, open(out_path, "wb") as dst:
-                            shutil.copyfileobj(src, dst)
-                        extracted.append(out_path)
-        except Exception as e:
-            print(f"??? FATLABEL (download/extract) failed: {e}")
-            return "", ""
-
-        chosen = ""
-        if extracted:
-            vh = (variant_hint or "").lower()
-            regulars = [p for p in extracted if re.search(r"regular", os.path.basename(p), re.I)]
-            hinted = [p for p in extracted if vh and re.search(re.escape(vh), os.path.basename(p), re.I)]
-            chosen = (regulars[:1] or hinted[:1] or extracted[:1])[0]
-
-        if not chosen:
-            return "", ""
-
-        rel_for_dropdown = os.path.relpath(chosen, os.path.join(fatlabel__path, "fonts")).replace(os.sep, "/")
-        return chosen, rel_for_dropdown
+            return image_tensor_out,
 
 NODE_CLASS_MAPPINGS = {
-    "🏷️ FATLABEL (Basic)": BasicFatLabel,
+    "­ƒÅÀ´©Å FATLABEL (Basic)": BasicFatLabel,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "BasicFatLabel": "🏷️ FATLABEL (Basic)",
+    "BasicFatLabel": "­ƒÅÀ´©Å FATLABEL (Basic)",
 
 }
-NODE_CLASS_MAPPINGS["GoogleFontDownload"] = GoogleFontDownload
-NODE_DISPLAY_NAME_MAPPINGS["GoogleFontDownload"] = "Google Font Download"

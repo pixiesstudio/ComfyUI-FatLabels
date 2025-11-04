@@ -270,3 +270,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BasicFatLabel": "🏷️ FATLABEL (Basic)",
 
 }
+NODE_CLASS_MAPPINGS["GoogleFontDownload"] = GoogleFontDownload
+NODE_DISPLAY_NAME_MAPPINGS["GoogleFontDownload"] = "Google Font Download"

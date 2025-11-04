@@ -176,7 +176,8 @@ class BasicFatLabel:
         if font_path and isinstance(font_path, str) and os.path.isfile(font_path):
             selected_font_path = font_path
         else:
-            selected_font_path = os.path.join(fatlabel__path, "fonts", font_name)
+            # Allow subfolders selected via dropdown (entries use forward slashes)
+            selected_font_path = os.path.join(fatlabel__path, "fonts", *font_name.split("/"))
 
         if not text:
             # If text is empty, return a placeholder canvas directly

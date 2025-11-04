@@ -190,6 +190,78 @@ class BasicFatLabel:
             image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
             return image_tensor_out,
 
+
+def _slugify_family(name: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-")
+    return s or "font"
+
+
+class GoogleFontDownload:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "family": ("STRING", {"default": "Inter"}),
+                "variant_hint": ("STRING", {"default": "Regular"}),
+                "overwrite": ("BOOLEAN", {"default": False}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("font_path", "font_name")
+    FUNCTION = "download"
+    CATEGORY = "??? FATLABEL (Fonts)"
+
+    def download(self, family: str, variant_hint: str = "Regular", overwrite: bool = False):
+        base_dir = os.path.join(fatlabel__path, "fonts")
+        fam_slug = _slugify_family(family)
+        dest_dir = os.path.join(base_dir, fam_slug)
+        os.makedirs(base_dir, exist_ok=True)
+
+        if overwrite and os.path.isdir(dest_dir):
+            try:
+                shutil.rmtree(dest_dir)
+            except Exception as e:
+                print(f"??? FATLABEL (fonts): failed to clear existing dir: {e}")
+
+        os.makedirs(dest_dir, exist_ok=True)
+
+        url = "https://fonts.google.com/download?family=" + urllib.parse.quote(family)
+        print(f"??? FATLABEL (download): {family} -> {url}")
+
+        extracted = []
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                tmp_zip = os.path.join(td, "font.zip")
+                with urllib.request.urlopen(url) as resp, open(tmp_zip, "wb") as f:
+                    shutil.copyfileobj(resp, f)
+
+                with zipfile.ZipFile(tmp_zip) as zf:
+                    for zi in zf.infolist():
+                        name = zi.filename
+                        if not name.lower().endswith((".ttf", ".otf")):
+                            continue
+                        out_path = os.path.join(dest_dir, os.path.basename(name))
+                        with zf.open(zi) as src, open(out_path, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+                        extracted.append(out_path)
+        except Exception as e:
+            print(f"??? FATLABEL (download/extract) failed: {e}")
+            return "", ""
+
+        chosen = ""
+        if extracted:
+            vh = (variant_hint or "").lower()
+            regulars = [p for p in extracted if re.search(r"regular", os.path.basename(p), re.I)]
+            hinted = [p for p in extracted if vh and re.search(re.escape(vh), os.path.basename(p), re.I)]
+            chosen = (regulars[:1] or hinted[:1] or extracted[:1])[0]
+
+        if not chosen:
+            return "", ""
+
+        rel_for_dropdown = os.path.relpath(chosen, os.path.join(fatlabel__path, "fonts")).replace(os.sep, "/")
+        return chosen, rel_for_dropdown
+
         font_color_rgba = ImageColor.getcolor(font_color_hex, "RGBA")
         fill_color = font_color_rgba if transparent_background else font_color_rgba[:3]
 

@@ -187,8 +187,11 @@ class BasicFatLabel:
 
             # Draw text with adjusted font size and kerning (using integers for coordinates)
             draw = ImageDraw.Draw(canvas)
-            x = (canvas_width - actual_text_width) / 2
-            y = (canvas_height - text_height) // 2
+            # Use baseline-aware positioning to avoid clipping at the bottom.
+            # getbbox returns (left, top, right, bottom) relative to baseline.
+            # To center visually, offset by bbox top so that the baseline is positioned correctly.
+            x = (canvas_width - actual_text_width) / 2 - (bbox[0] if bbox else 0)
+            y = int(round((canvas_height - text_height) / 2 - (bbox[1] if bbox else 0)))
 
             for ch, ch_width in zip(text, glyph_widths):
                 draw.text((x, y), ch, fill=fill_color, font=font)

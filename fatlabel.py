@@ -262,56 +262,6 @@ class GoogleFontDownload:
         rel_for_dropdown = os.path.relpath(chosen, os.path.join(fatlabel__path, "fonts")).replace(os.sep, "/")
         return chosen, rel_for_dropdown
 
-        font_color_rgba = ImageColor.getcolor(font_color_hex, "RGBA")
-        fill_color = font_color_rgba if transparent_background else font_color_rgba[:3]
-
-        # Initial font size and maximum attempts for fitting text
-        current_font_size = font_size
-        max_attempts = 10
-
-        for _ in range(max_attempts):
-            font = ImageFont.truetype(selected_font_path, current_font_size)
-
-            # Calculate glyph widths and apply kerning between characters (Pillow 10+)
-            # getsize was removed; use getlength for width per character
-            glyph_widths = [font.getlength(ch) for ch in text]
-            kerning_total = max(0, len(text) - 1) * kerning_value
-            actual_text_width = sum(glyph_widths) + kerning_total
-
-            # Calculate text height
-            # Use getbbox to compute height (top/bottom of bounding box)
-            bbox = font.getbbox(text)
-            text_height = (bbox[3] - bbox[1]) if bbox else current_font_size
-
-            # Create canvas with appropriate width and height (using integers)
-            canvas_width = max(1, int(round(actual_text_width + 40)))
-            canvas_height = max(1, int(round(text_height + 40)))
-            if transparent_background:
-                canvas_mode = "RGBA"
-                canvas_color = (0, 0, 0, 0)
-            else:
-                canvas_mode = "RGB"
-                canvas_color = ImageColor.getcolor(background_color_hex, "RGBA")[:3]
-
-            canvas = Image.new(canvas_mode, (canvas_width, canvas_height), canvas_color)
-
-            # Draw text with adjusted font size and kerning (using integers for coordinates)
-            draw = ImageDraw.Draw(canvas)
-            # Use baseline-aware positioning to avoid clipping at the bottom.
-            # getbbox returns (left, top, right, bottom) relative to baseline.
-            # To center visually, offset by bbox top so that the baseline is positioned correctly.
-            x = (canvas_width - actual_text_width) / 2 - (bbox[0] if bbox else 0)
-            y = int(round((canvas_height - text_height) / 2 - (bbox[1] if bbox else 0)))
-
-            for ch, ch_width in zip(text, glyph_widths):
-                draw.text((x, y), ch, fill=fill_color, font=font)
-                x += ch_width + kerning_value
-
-            # Convert to PyTorch tensor efficiently
-            image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
-
-            return image_tensor_out,
-
 NODE_CLASS_MAPPINGS = {
     "🏷️ FATLABEL (Basic)": BasicFatLabel,
 }

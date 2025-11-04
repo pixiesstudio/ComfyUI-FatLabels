@@ -143,8 +143,9 @@ class BasicFatLabel:
                 "transparent_background": ("BOOLEAN", {"default": False}),
             },
             # Optional: allow manual override with a custom absolute path
+            # Leave empty by default so dropdown is used unless explicitly overridden.
             "optional": {
-                "font_path": ("STRING", {"default": f"{fatlabel__path}/fonts/Bevan-Regular.ttf", "multiline": False}),
+                "font_path": ("STRING", {"default": "", "multiline": False}),
             }
         }
 
@@ -158,13 +159,13 @@ class BasicFatLabel:
         background_color_hex="#000000",
         font_color_hex="#888888",
         font_name=_list_node_fonts()[0],
-        font_path=f"{fatlabel__path}/fonts/Bevan-Regular.ttf",
+        font_path="",
         font_size=72,
         kerning_value=0.0,
         transparent_background=False,
     ):
         # Resolve selected font: prefer custom path if it points to a file, otherwise use dropdown choice
-        if font_path and os.path.isfile(font_path):
+        if font_path and isinstance(font_path, str) and os.path.isfile(font_path):
             selected_font_path = font_path
         else:
             selected_font_path = os.path.join(fatlabel__path, "fonts", font_name)

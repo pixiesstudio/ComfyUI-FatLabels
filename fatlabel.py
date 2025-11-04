@@ -14,6 +14,7 @@ import threading
 import locale
 import pandas as pd
 import os
+import re
 
 comfy__path = os.path.dirname(folder_paths.__file__)
 fatlabel__path = os.path.join(os.path.dirname(__file__))
@@ -122,6 +123,7 @@ class BasicFatLabel:
                 "background_color_hex": ("STRING", {"default": "#000000", "multiline": False}),
                 "font_size": ("INT", {"default": 72, "min": 1}),  # Font size in pixels
                 "kerning_value": ("FLOAT", {"default": 0.0}),  # New input for kerning
+                "transparent_background": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -129,50 +131,70 @@ class BasicFatLabel:
     FUNCTION = "create_basic_fatlabel"
     CATEGORY = "🏷️ FATLABEL (Basic)"
 
-    def create_basic_fatlabel(self, text="", background_color_hex="#000000", font_color_hex="#888888", font_path=f"{fatlabel__path}/fonts/Bevan-Regular.ttf", font_size=72, kerning_value=0.0):
-            if not text:
-                # If text is empty, return a black canvas directly
-                canvas_width, canvas_height = 40, 40  # Set desired dimensions for an empty canvas
-                bg_color = ImageColor.getrgb(background_color_hex)
-                canvas = Image.new("RGB", (canvas_width, canvas_height), bg_color)
-                image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
-                return image_tensor_out,
+    def create_basic_fatlabel(
+        self,
+        text="",
+        background_color_hex="#000000",
+        font_color_hex="#888888",
+        font_path=f"{fatlabel__path}/fonts/Bevan-Regular.ttf",
+        font_size=72,
+        kerning_value=0.0,
+        transparent_background=False,
+    ):
+        if not text:
+            # If text is empty, return a placeholder canvas directly
+            canvas_width, canvas_height = 40, 40  # Set desired dimensions for an empty canvas
+            if transparent_background:
+                canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+            else:
+                bg_color = ImageColor.getcolor(background_color_hex, "RGBA")
+                canvas = Image.new("RGB", (canvas_width, canvas_height), bg_color[:3])
+            image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
+            return image_tensor_out,
 
-            bg_color = ImageColor.getrgb(background_color_hex)
-            font_color = ImageColor.getrgb(font_color_hex)
+        font_color_rgba = ImageColor.getcolor(font_color_hex, "RGBA")
+        fill_color = font_color_rgba if transparent_background else font_color_rgba[:3]
 
-            # Initial font size and maximum attempts for fitting text
-            current_font_size = font_size
-            max_attempts = 10
+        # Initial font size and maximum attempts for fitting text
+        current_font_size = font_size
+        max_attempts = 10
 
-            for _ in range(max_attempts):
-                font = ImageFont.truetype(font_path, current_font_size)
+        for _ in range(max_attempts):
+            font = ImageFont.truetype(font_path, current_font_size)
 
-                # Calculate actual text width with kerning
-                actual_text_width = sum(font.getsize(ch)[0] + kerning_value for ch in text)
+            # Calculate glyph widths and apply kerning between characters
+            glyph_widths = [font.getsize(ch)[0] for ch in text]
+            kerning_total = max(0, len(text) - 1) * kerning_value
+            actual_text_width = sum(glyph_widths) + kerning_total
 
-                # Calculate text height
-                text_height = font.getsize(text)[1]
+            # Calculate text height
+            text_height = font.getsize(text)[1]
 
-                # Create canvas with appropriate width and height (using integers)
-                canvas_width = int(actual_text_width + 40)
-                canvas_height = int(text_height + 40)
-                canvas = Image.new("RGB", (canvas_width, canvas_height), bg_color)
+            # Create canvas with appropriate width and height (using integers)
+            canvas_width = max(1, int(round(actual_text_width + 40)))
+            canvas_height = max(1, int(round(text_height + 40)))
+            if transparent_background:
+                canvas_mode = "RGBA"
+                canvas_color = (0, 0, 0, 0)
+            else:
+                canvas_mode = "RGB"
+                canvas_color = ImageColor.getcolor(background_color_hex, "RGBA")[:3]
 
-                # Draw text with adjusted font size and kerning (using integers for coordinates)
-                draw = ImageDraw.Draw(canvas)
-                x = (canvas_width - actual_text_width) // 2
-                y = (canvas_height - text_height) // 2
+            canvas = Image.new(canvas_mode, (canvas_width, canvas_height), canvas_color)
 
-                for ch in text:
-                    ch_width, _ = font.getsize(ch)
-                    draw.text((x, y), ch, fill=font_color, font=font)
-                    x += ch_width + int(kerning_value)  # Add integers for positioning
+            # Draw text with adjusted font size and kerning (using integers for coordinates)
+            draw = ImageDraw.Draw(canvas)
+            x = (canvas_width - actual_text_width) / 2
+            y = (canvas_height - text_height) // 2
 
-                # Convert to PyTorch tensor efficiently
-                image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
+            for ch, ch_width in zip(text, glyph_widths):
+                draw.text((x, y), ch, fill=fill_color, font=font)
+                x += ch_width + kerning_value
 
-                return image_tensor_out,
+            # Convert to PyTorch tensor efficiently
+            image_tensor_out = torch.tensor(np.array(canvas) / 255.0, dtype=torch.float32).unsqueeze(0)
+
+            return image_tensor_out,
 
 NODE_CLASS_MAPPINGS = {
     "🏷️ FATLABEL (Basic)": BasicFatLabel,

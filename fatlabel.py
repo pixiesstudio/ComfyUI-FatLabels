@@ -15,6 +15,12 @@ import locale
 import pandas as pd
 import os
 import re
+import io
+import shutil
+import tempfile
+import zipfile
+import urllib.parse
+import urllib.request
 
 comfy__path = os.path.dirname(folder_paths.__file__)
 fatlabel__path = os.path.join(os.path.dirname(__file__))
@@ -22,18 +28,20 @@ fatlabel__path = os.path.join(os.path.dirname(__file__))
 
 def _list_node_fonts():
     fonts_dir = os.path.join(fatlabel__path, "fonts")
+    results = []
     try:
-        files = [
-            f for f in os.listdir(fonts_dir)
-            if f.lower().endswith((".ttf", ".otf", ".ttc", ".otc"))
-        ]
+        for root, _, files in os.walk(fonts_dir):
+            for f in files:
+                if f.lower().endswith((".ttf", ".otf", ".ttc", ".otc")):
+                    rel = os.path.relpath(os.path.join(root, f), fonts_dir)
+                    results.append(rel.replace(os.sep, "/"))
     except Exception:
-        files = []
+        pass
 
-    if not files:
+    if not results:
         # Provide a sane default, even if missing on disk
-        files = ["Bevan-Regular.ttf"]
-    return sorted(files)
+        results = ["Bevan-Regular.ttf"]
+    return sorted(results)
 
 def handle_stream(stream, is_stdout):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')

@@ -162,13 +162,16 @@ class BasicFatLabel:
         for _ in range(max_attempts):
             font = ImageFont.truetype(font_path, current_font_size)
 
-            # Calculate glyph widths and apply kerning between characters
-            glyph_widths = [font.getsize(ch)[0] for ch in text]
+            # Calculate glyph widths and apply kerning between characters (Pillow 10+)
+            # getsize was removed; use getlength for width per character
+            glyph_widths = [font.getlength(ch) for ch in text]
             kerning_total = max(0, len(text) - 1) * kerning_value
             actual_text_width = sum(glyph_widths) + kerning_total
 
             # Calculate text height
-            text_height = font.getsize(text)[1]
+            # Use getbbox to compute height (top/bottom of bounding box)
+            bbox = font.getbbox(text)
+            text_height = (bbox[3] - bbox[1]) if bbox else current_font_size
 
             # Create canvas with appropriate width and height (using integers)
             canvas_width = max(1, int(round(actual_text_width + 40)))
